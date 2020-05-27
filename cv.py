@@ -1,3 +1,4 @@
+import datetime as dt
 import os
 
 import cv2
@@ -33,7 +34,7 @@ fire_cascade = cv2.CascadeClassifier(fire_cascade_path)
 hog = cv2.HOGDescriptor()
 hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
 
-camera = cv2.VideoCapture(pedestrian_image_path)
+camera = cv2.VideoCapture(0)
 error_image = cv2.imread(error_image_path)
 _, error_image_in_bytes = cv2.imencode('.jpg', error_image)
 
@@ -46,7 +47,8 @@ yellow = (0, 255, 255)
 # Flags
 fire_exists = False
 persons_exists = False
-notification_sent = False
+is_first_detection = True
+last_detection_time = None
 
 
 def generate_image(buffer):
@@ -60,7 +62,7 @@ def frame_in_rect(objects, frame, title, color):
 
     for (x, y, w, h) in pick:
         cv2.rectangle(frame, (x, y), (w, h), color, 2)
-        cv2.putText(frame, title, (x, y - 2), cv2.FONT_HERSHEY_PLAIN, 1, 255)
+        cv2.putText(frame, title, (x, y - 2), cv2.FONT_HERSHEY_SIMPLEX, 1, blue, 2)
 
 
 def send_log(recognized_objects, log_type):
@@ -72,6 +74,7 @@ def send_log(recognized_objects, log_type):
     endpoint = f"{API_BASE_URL}/logs"
     try:
         r.post(endpoint, json=data)
+        print(f"[INFO] - {dt.datetime.now().strftime('%m/%d/%Y, %H:%M:%S')} - Sending log...")
     except Exception as e:
         print(e)
 
@@ -96,24 +99,43 @@ def gen_video():
         persons_count = len(persons)
         fire_count = len(fire)
 
-        global persons_exists, fire_exists, notification_sent
+        global is_first_detection, last_detection_time
 
         if fire_count > 0:
-            fire_exists = True
-            if fire_exists and not notification_sent:
+            current_detection_time = dt.datetime.now()
+
+            if is_first_detection:
                 send_log(recognized_objects="Warning! Fire detected", log_type=1)
-                notification_sent = True
+                last_detection_time = current_detection_time
+                is_first_detection = False
+
+            time_diff = current_detection_time - last_detection_time
+            last_detection_time = current_detection_time
+
+            if time_diff.seconds > 10:
+                send_log(recognized_objects="Warning! Fire detected", log_type=1)
 
         if persons_count > 0 & fire_count > 0:
-            persons_exists = True
-            fire_exists = True
-            if (persons_exists and fire_exists) and not notification_sent:
+            current_detection_time = dt.datetime.now()
+
+            if is_first_detection:
                 send_log(recognized_objects="Warning!!! People and fire detected", log_type=2)
-                notification_sent = True
+                last_detection_time = current_detection_time
+                is_first_detection = False
+
+            time_diff = current_detection_time - last_detection_time
+            last_detection_time = current_detection_time
+
+            if time_diff.seconds > 10:
+                send_log(recognized_objects="Warning!!! People and fire detected", log_type=2)
 
         frame_in_rect(faces, frame, "face", green)
         frame_in_rect(fire, frame, "fire", red)
         frame_in_rect(persons, frame, "person", yellow)
+
+        cv2.putText(frame, f"CAMERA {CAMERA_ID}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, red, 2)
+        cv2.putText(frame, f"Faces: {len(faces)} - Persons: {persons_count} - Fire in the frame: {len(fire) > 0}",
+                    (10, frame.shape[0] - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, green, 2)
 
         _, buffer = cv2.imencode('.jpg', frame)
 
