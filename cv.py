@@ -20,8 +20,6 @@ face_cascade_path = haarcascades_path + "haarcascade_frontalface_default.xml"
 fire_cascade_path = os.path.join(PROJECT_DIR, "fire_detection.xml")
 
 # images
-pedestrian_image_path = os.path.join(PROJECT_DIR, "pedestrian.jpeg")
-fire_image_path = os.path.join(PROJECT_DIR, "fire.jpeg")
 error_image_path = os.path.join(PROJECT_DIR, "error.jpg")
 
 # environment variables
