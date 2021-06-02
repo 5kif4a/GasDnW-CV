@@ -13,5 +13,5 @@ opencv-contrib-python==4.2.0.34
 pycparser==2.20
 python-dotenv==0.13.0
 requests==2.23.0
-urllib3==1.25.9
+urllib3==1.26.5
 Werkzeug==1.0.1
